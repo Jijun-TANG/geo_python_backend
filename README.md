@@ -23,3 +23,9 @@ pip install -r requirements.txt
 ```
 uvicorn app.main:app --port 8090 --reload
 ```
+
+### Deactivate virtual environment:
+
+```
+deactivate
+```
