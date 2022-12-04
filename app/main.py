@@ -9,12 +9,20 @@ import json
 import csv
 from pymongo import MongoClient
 from fastapi.encoders import jsonable_encoder
+from fastapi.middleware.cors import CORSMiddleware
 
 class EluNode(BaseModel):
     fullName:str = ""
     positionName:str = ""
     location:str = ""
+    terrUid: str = ""
     stillEffective:bool = True
+
+class AdminUnitFlatNode(BaseModel):
+  id:int = -1
+  name:str = ""
+  kind:str = ""
+  code: str = ""
 
 # Provide the mongodb atlas url to connect python to mongodb using pymongo
 USERNAME = "explain"
@@ -57,12 +65,23 @@ if "territoires" not in already_collected:
 collection_elected = db["elected"]
 
 collection_territoires = db["territoires"]
+origins = [
+    "http://localhost:4200",
+]
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 http_cache = {}
 
-cursor = collection_elected.find({"_source.positions":{"$elemMatch": {"territory_uid" : {"$eq": "FRCOMM03258"}}}} , {"_source.fullname":1, "_source.positions":1})
+#cursor = collection_elected.find({"_source.positions":{"$elemMatch": {"territory_uid" : {"$eq": "FRCOMM03258"}}}} , {"_source.fullname":1, "_source.positions":1})
 
 
 # async keyword: complex tasks like sending multiplex messages to API/ DataBases
@@ -90,10 +109,43 @@ async def get_elected_by_admin_code(code: str) -> List[Optional[EluNode]]:
             temp.positionName = pos['role_uid']
             locations = collection_territoires.find_one({"code":{"$eq":code[6:]}}, {"name":1})
             temp.location = locations["name"]
+            temp.terrUid = code
             ans.append(temp)
 
     http_cache[code] = ans
 
     return ans
 
+http_cache2 = {}
+
+@app.get("/territoires/{name}")
+async def get_territories_by_name(name: str) -> List[Optional[EluNode]]:
+    if len(name) < 1 or type(name) != str:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Please provide a valide territory code")
+
+    if name in http_cache2:
+        return http_cache2[name]
+
+    body = ".*" + name + "*."
+
+    cursor = collection_territoires.find({"name":{"$regex":body}})
+    ans = []
+    for doc in cursor:
+        print("result!: ", doc)
+        temp = AdminUnitFlatNode()
+        temp.id = int(doc['_id'])
+        temp.code = doc["code"]
+        temp.name = doc["name"]
+        temp.kind = doc["kind"]
+        ans.append(temp)
+
+    http_cache[name] = ans
+
+    return ans
+
 #client.close()
+
+@app.get("/")
+async def main():
+    return {"message": "Hello World"}
