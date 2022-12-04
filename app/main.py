@@ -129,7 +129,7 @@ async def get_territories_by_name(name: str) -> List[Optional[EluNode]]:
 
     body = ".*" + name + "*."
 
-    cursor = collection_territoires.find({"name":{"$regex":body}})
+    cursor = collection_territoires.find({"name":{"$regex":body, '$options' : 'i'}})
     ans = []
     for doc in cursor:
         print("result!: ", doc)
