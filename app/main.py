@@ -119,10 +119,10 @@ async def get_elected_by_admin_code(code: str) -> List[Optional[EluNode]]:
 http_cache2 = {}
 
 @app.get("/territoires/{name}")
-async def get_territories_by_name(name: str) -> List[Optional[EluNode]]:
+async def get_territories_by_name(name: str) -> List[Optional[AdminUnitFlatNode]]:
     if len(name) < 1 or type(name) != str:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Please provide a valide territory code")
+                            detail=f"Please provide a valide territory name")
 
     if name in http_cache2:
         return http_cache2[name]
@@ -130,6 +130,45 @@ async def get_territories_by_name(name: str) -> List[Optional[EluNode]]:
     body = ".*" + name + "*."
 
     cursor = collection_territoires.find({"name":{"$regex":body, '$options' : 'i'}})
+    ans = []
+    for doc in cursor:
+        #print("result of territory by name fragments!: ", doc)
+        temp = AdminUnitFlatNode()
+        temp.id = int(doc['_id'])
+        temp.code = doc["code"]
+        temp.name = doc["name"]
+        temp.kind = doc["kind"]
+        ans.append(temp)
+
+    http_cache[name] = ans
+
+    return ans
+
+
+http_cache3 = {}
+
+@app.get("/territoires_codes/{code}")
+async def get_territories_by_postal_code(code: str) -> List[Optional[AdminUnitFlatNode]]:
+    """
+    parameter:
+
+    code: Postal code of territory
+
+
+    Return:
+
+    territoire correspond to the code provided
+    """
+    if len(code) < 1 or type(code) != str or code.isdigit()==False:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Please provide a valide territory postal code")
+
+    if code in http_cache3:
+        return http_cache3[code]
+
+    body = ".*" + code + "*."
+
+    cursor = collection_territoires.find({"code":{"$regex":body}})
     ans = []
     for doc in cursor:
         print("result!: ", doc)
@@ -140,7 +179,7 @@ async def get_territories_by_name(name: str) -> List[Optional[EluNode]]:
         temp.kind = doc["kind"]
         ans.append(temp)
 
-    http_cache[name] = ans
+    http_cache[code] = ans
 
     return ans
 
